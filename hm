@@ -1,0 +1,1182 @@
+[
+    {
+        "id": "cd4493f7e6e92af9",
+        "type": "tab",
+        "label": "Flow 4",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "434b127131366116",
+        "type": "group",
+        "z": "cd4493f7e6e92af9",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "81f83a843bd72c89"
+        ],
+        "x": 854,
+        "y": 659,
+        "w": 212,
+        "h": 82
+    },
+    {
+        "id": "5ed8cc690efa3569",
+        "type": "function",
+        "z": "cd4493f7e6e92af9",
+        "name": "update HMCellArray",
+        "func": "//Grab the array.\nlet data = flow.get(\"HMCellArray\");\n\n//Grab cell ID and sensor values.\nlet cellID = msg.payload.cellID\nlet sensorValue = msg.payload.sensorValue\n//update the data point here by changing the array content.\ndata[cellID] = sensorValue\n\n//save the data to the flow variable\nflow.set(\"HMCellArray\",data);\nmsg.payload = data;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "// Code added here will be run when the\n// node is being stopped or re-deployed.\nflow.set(\"HMCellArray\", [])",
+        "libs": [],
+        "x": 1500,
+        "y": 240,
+        "wires": [
+            [
+                "62e1c5c63f42c111",
+                "3f7fa3af4a8625b4"
+            ]
+        ]
+    },
+    {
+        "id": "62e1c5c63f42c111",
+        "type": "debug",
+        "z": "cd4493f7e6e92af9",
+        "name": "Heatmap Array In",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1830,
+        "y": 320,
+        "wires": []
+    },
+    {
+        "id": "3f7fa3af4a8625b4",
+        "type": "ui_heat_map",
+        "z": "cd4493f7e6e92af9",
+        "group": "143de3c.3c1901c",
+        "order": 1,
+        "width": "27",
+        "height": "14",
+        "name": "Temperature  (\\(\\degree \\))C",
+        "rows": "20",
+        "columns": "40",
+        "minMax": true,
+        "minimumValue": "15",
+        "maximumValue": "25",
+        "backgroundType": "image",
+        "backgroundColor": "#ffffff",
+        "image": "never",
+        "radius": "15",
+        "opacity": "0",
+        "blur": "1",
+        "showValues": false,
+        "gridType": "vals",
+        "valuesDecimals": 0,
+        "showLegend": false,
+        "legendType": "vals",
+        "legendDecimals": "0",
+        "legendCount": "2",
+        "x": 1840,
+        "y": 180,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "321a93c2e32a6410",
+        "type": "inject",
+        "z": "cd4493f7e6e92af9",
+        "name": "Clear Heatmap",
+        "props": [],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "x": 1140,
+        "y": 400,
+        "wires": [
+            [
+                "889ca9f11b63ca19",
+                "93cb3a5c1877c67a"
+            ]
+        ]
+    },
+    {
+        "id": "b62014966f6af952",
+        "type": "function",
+        "z": "cd4493f7e6e92af9",
+        "name": "get Cell ID from lat/long",
+        "func": "// expects: msg.payload = { latV: number, lonV: number }\nconst HMCellCount = Number(flow.get(\"HMCellCount\") ?? 400);\nconst axisLength = Math.sqrt(HMCellCount);\nlet N = axisLength\nconst latV = msg.payload.latV, lonV = msg.payload.lonV;\nlet limits = flow.get(\"mapLimits\") ?? [-61.08, 45.70, -61.00, 45.75];\nlet [lonMin, latMin, lonMax, latMax] = limits.map(Number);\n\n//Check input is valid.\nif (!Number.isFinite(latV) || !Number.isFinite(lonV)) {\n  node.warn(\"latV/lonV missing or not numbers\");\n  return null;\n}\nif (!Number.isFinite(axisLength) || axisLength <= 0) {\n  node.warn(\"HMCellCount invalid\");\n  return null;\n}\nif (lonMax === lonMin || latMax === latMin) {\n  node.warn(\"mapLimits invalid (zero span)\");\n  return null;\n}//Check point is within boundary.\nif (latV < latMin || latV > latMax || lonV < lonMin || lonV > lonMax){\n  //node.warn(\"Vehicle lat lon is outside bounds.\")\n}\n\n\n// Normalize to range of 0,1\nconst fx = (lonV - lonMin) / (lonMax - lonMin);\nconst fy = (latV - latMin) / (latMax - latMin);\n\n// Dimensions of the grid in the HeatMap node, not the picture!\nconst gridRows = 20; // vertical\nconst gridCols = 80; // horizontal\n\n// Find the column first, then the row.\nconst col = Math.min(Math.floor(fx * gridCols), gridCols - 1);  // x index 0→39\nconst rowFromBottom = Math.min(Math.floor(fy * gridRows), gridRows - 1); // 0→19 bottom→top\n\n// 0 is top, so subtract to get the proper addition,.\nconst row = (gridRows - 1) - rowFromBottom;\n\n// Row-major index: increase down columns first (top→bottom) then left→right\nconst cellID = row + col * gridRows;\n\nlet newMsg = {}\nlet payload ={}\n\nnewMsg.payload = {};\n\nif (cellID >= HMCellCount||cellID<0)\n  return null;\n else {\n  newMsg.payload.cellID = cellID;\n  delete msg.header;\n  return newMsg;\n}",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 850,
+        "y": 240,
+        "wires": [
+            [
+                "74e1875a5bf51a7b",
+                "992cd47315640b36"
+            ]
+        ]
+    },
+    {
+        "id": "2d4ebd1de5d6ee2f",
+        "type": "inject",
+        "z": "cd4493f7e6e92af9",
+        "name": "Show background",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 750,
+        "y": 140,
+        "wires": [
+            [
+                "8a9fd8bf57e2600f"
+            ]
+        ]
+    },
+    {
+        "id": "b8569f5ea6cdf7de",
+        "type": "http request",
+        "z": "cd4493f7e6e92af9",
+        "name": "Download image",
+        "method": "GET",
+        "ret": "bin",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "basic",
+        "senderr": false,
+        "headers": [],
+        "x": 1270,
+        "y": 140,
+        "wires": [
+            [
+                "61bf9224bfb20580"
+            ]
+        ]
+    },
+    {
+        "id": "08b5cea1cf04d084",
+        "type": "change",
+        "z": "cd4493f7e6e92af9",
+        "name": "",
+        "rules": [
+            {
+                "t": "move",
+                "p": "payload",
+                "pt": "msg",
+                "to": "image",
+                "tot": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 1610,
+        "y": 140,
+        "wires": [
+            [
+                "3f7fa3af4a8625b4"
+            ]
+        ]
+    },
+    {
+        "id": "61bf9224bfb20580",
+        "type": "base64",
+        "z": "cd4493f7e6e92af9",
+        "name": "",
+        "action": "",
+        "property": "payload",
+        "x": 1440,
+        "y": 140,
+        "wires": [
+            [
+                "08b5cea1cf04d084"
+            ]
+        ]
+    },
+    {
+        "id": "8a9fd8bf57e2600f",
+        "type": "function",
+        "z": "cd4493f7e6e92af9",
+        "name": "Set URL + Get Limits",
+        "func": "function getSubstringBetween(str, char1, char2) {\n    const startIndex = str.indexOf(char1);\n    const endIndex = str.indexOf(char2, startIndex + 1); // Start search for char2 after char1\n\n    if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {\n        return str.substring(startIndex + 1, endIndex);\n    } else {\n        return \"\"; // Or handle the case where characters are not found or in wrong order\n    }\n}\n\nlet mapLimits = new Array(4);\n//Grab the lat/long limits from the URL.\nlet mapLimitsString = getSubstringBetween(flow.get(\"mapURL\"), \"=\", \"&bboxSR\")\n//Convert the substring into limits.\nlet splitLimits = mapLimitsString.split(\",\");\n//Convert limits from strings to floats.\nlet limits = splitLimits.map(item => parseFloat(item));\n//Assign limits to flow variable.\n//Limits = lonMin,latMin,lonMax,latMax\nflow.set(\"mapLimits\", limits);\n//msg.payload = flow.get(\"mapLimits\");\n//Set the URL for HTTP get to the flow variable.\nmsg.url = flow.get(\"mapURL\")\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "// Code added here will be run once\n// whenever the node is started.\n//St Peters Rectangle\n//flow.set(\"mapURL\",  \"https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-61.0467225,45.721222,-61.0374985,45.725834&bboxSR=4326&imageSR=4326&size=2048,1024&format=jpg&f=image\")\n\n//Iona Testing Regions Square\n//flow.set(\"mapURL\",  \"https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-60.807560,45.961888,-60.793568,45.969285&bboxSR=4326&size=1024,1024&format=jpg&f=image\")\n//Iona Testing Regions Rectangle\n//flow.set(\"mapURL\", \"https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-60.782895,45.958715,-60.816613,45.972229&bboxSR=4326&size=2048,1024&format=jpg&f=image\")\n\n//Burnside\n//flow.set(\"mapURL\", \"https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-63.615847,44.707940,-63.606351,44.712552&bboxSR=4326&size=2048,1024&format=jpg&f=image\")\n\n//Dal Parking Lot\nflow.set(\"mapURL\", \"https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-63.595991,44.6346515,-63.594210,44.6364325&bboxSR=4326&size=1000,500&format=jpg&f=image \")\n\nflow.set(\"mapLimits\", [])\nlet cellCount = 1600\nflow.set(\"HMCellCount\", cellCount)\nlet cellArray = new Array(cellCount).fill(null)\nflow.set(\"HMCellArray\", cellArray)",
+        "finalize": "",
+        "libs": [],
+        "x": 1040,
+        "y": 140,
+        "wires": [
+            [
+                "b8569f5ea6cdf7de"
+            ]
+        ]
+    },
+    {
+        "id": "889ca9f11b63ca19",
+        "type": "function",
+        "z": "cd4493f7e6e92af9",
+        "name": "Clear Array Fn",
+        "func": "let cellCount = flow.get(\"HMCellCount\");\nlet arr = new Array(cellCount).fill(null);\nflow.set(\"HMArray\",arr);\nmsg.payload = arr;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1420,
+        "y": 400,
+        "wires": [
+            [
+                "3f7fa3af4a8625b4"
+            ]
+        ]
+    },
+    {
+        "id": "74e1875a5bf51a7b",
+        "type": "debug",
+        "z": "cd4493f7e6e92af9",
+        "name": "CellID",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload.cellID",
+        "targetType": "msg",
+        "statusVal": "payload.cellID",
+        "statusType": "auto",
+        "x": 950,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "93cb3a5c1877c67a",
+        "type": "ui_button",
+        "z": "cd4493f7e6e92af9",
+        "name": "Clear Heatmap Button",
+        "group": "143de3c.3c1901c",
+        "order": 3,
+        "width": "10",
+        "height": "1",
+        "passthru": false,
+        "label": "Clear Heatmap Values",
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "className": "",
+        "icon": "",
+        "payload": "",
+        "payloadType": "str",
+        "topic": "topic",
+        "topicType": "msg",
+        "x": 1300,
+        "y": 500,
+        "wires": [
+            [
+                "889ca9f11b63ca19"
+            ]
+        ]
+    },
+    {
+        "id": "81f83a843bd72c89",
+        "type": "comment",
+        "z": "cd4493f7e6e92af9",
+        "g": "434b127131366116",
+        "name": "Debug variables",
+        "info": "",
+        "x": 960,
+        "y": 700,
+        "wires": []
+    },
+    {
+        "id": "992cd47315640b36",
+        "type": "join",
+        "z": "cd4493f7e6e92af9",
+        "name": "",
+        "mode": "custom",
+        "build": "merged",
+        "property": "payload",
+        "propertyType": "msg",
+        "key": "",
+        "joiner": "\\n",
+        "joinerType": "str",
+        "accumulate": false,
+        "timeout": "",
+        "count": "2",
+        "reduceRight": false,
+        "reduceExp": "",
+        "reduceInit": "",
+        "reduceInitType": "num",
+        "reduceFixup": "",
+        "x": 1250,
+        "y": 240,
+        "wires": [
+            [
+                "34313ffb35ce6c69",
+                "5ed8cc690efa3569"
+            ]
+        ]
+    },
+    {
+        "id": "42b6b3f79f53f51a",
+        "type": "inject",
+        "z": "cd4493f7e6e92af9",
+        "name": "inject 42",
+        "props": [
+            {
+                "p": "payload.sensorValue",
+                "v": "0",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "x": 860,
+        "y": 360,
+        "wires": [
+            [
+                "992cd47315640b36"
+            ]
+        ]
+    },
+    {
+        "id": "34313ffb35ce6c69",
+        "type": "debug",
+        "z": "cd4493f7e6e92af9",
+        "name": "Latlong + Sensor Value",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1470,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "a51c8e8e09a55be3",
+        "type": "websocket in",
+        "z": "cd4493f7e6e92af9",
+        "name": "heartbeat",
+        "server": "8bf427ecc39606b9",
+        "client": "",
+        "x": 60,
+        "y": 340,
+        "wires": [
+            [
+                "15763bdc7bce4e5e"
+            ]
+        ]
+    },
+    {
+        "id": "15763bdc7bce4e5e",
+        "type": "json",
+        "z": "cd4493f7e6e92af9",
+        "name": "messages",
+        "property": "payload",
+        "action": "obj",
+        "pretty": false,
+        "x": 190,
+        "y": 340,
+        "wires": [
+            [
+                "4fb2c86d0a8e9fe9"
+            ]
+        ]
+    },
+    {
+        "id": "64024326aa3cac7e",
+        "type": "function",
+        "z": "cd4493f7e6e92af9",
+        "name": "LON",
+        "func": "if(msg.payload.message.type==\"GPS_RAW_INT\"){\n msg.payload.lonV = msg.payload.message.lon / 10000000;\n msg.payload.latV = msg.payload.message.lat / 10000000;\n return msg;\n}else\n    return null;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 370,
+        "y": 340,
+        "wires": [
+            [
+                "1f2e5c91f4e0af89",
+                "253c9e5debdd10ad",
+                "b62014966f6af952"
+            ]
+        ]
+    },
+    {
+        "id": "1f2e5c91f4e0af89",
+        "type": "debug",
+        "z": "cd4493f7e6e92af9",
+        "name": "long",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload.lonV",
+        "targetType": "msg",
+        "statusVal": "payload",
+        "statusType": "auto",
+        "x": 570,
+        "y": 460,
+        "wires": []
+    },
+    {
+        "id": "253c9e5debdd10ad",
+        "type": "debug",
+        "z": "cd4493f7e6e92af9",
+        "name": "lat",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload.latV",
+        "targetType": "msg",
+        "statusVal": "payload",
+        "statusType": "auto",
+        "x": 590,
+        "y": 400,
+        "wires": []
+    },
+    {
+        "id": "cb5209e7cd25a077",
+        "type": "inject",
+        "z": "cd4493f7e6e92af9",
+        "name": "inject 10",
+        "props": [
+            {
+                "p": "payload.sensorValue",
+                "v": "10",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "x": 860,
+        "y": 420,
+        "wires": [
+            [
+                "992cd47315640b36"
+            ]
+        ]
+    },
+    {
+        "id": "49e5bfde1dbd983c",
+        "type": "inject",
+        "z": "cd4493f7e6e92af9",
+        "name": "inject 20",
+        "props": [
+            {
+                "p": "payload.sensorValue",
+                "v": "25",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "x": 840,
+        "y": 480,
+        "wires": [
+            [
+                "992cd47315640b36"
+            ]
+        ]
+    },
+    {
+        "id": "a3b41ecef739aacd",
+        "type": "function",
+        "z": "cd4493f7e6e92af9",
+        "name": "Add Sensor Type to Message",
+        "func": "const charReg = /[a-zA-Z]/;\nconst digitReg = /\\d/;\n\n\nlet timestamp = new Date().toISOString();\nif(charReg.test(msg.payload)==false && digitReg.test(msg.payload)){\n    msg.payload = {\n    timestamp: timestamp,\n    sensorType: \"CT.X2\",\n    sensorLine : msg.payload\n}\n    return msg;\n}\nelse\n    return null;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 450,
+        "y": 1320,
+        "wires": [
+            [
+                "ae48879ce09e94cb"
+            ]
+        ]
+    },
+    {
+        "id": "fff6521c5be2ded3",
+        "type": "debug",
+        "z": "cd4493f7e6e92af9",
+        "name": "Conductivity",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "payload",
+        "statusType": "auto",
+        "x": 1210,
+        "y": 1280,
+        "wires": []
+    },
+    {
+        "id": "ae48879ce09e94cb",
+        "type": "function",
+        "z": "cd4493f7e6e92af9",
+        "name": "Process CT",
+        "func": "if(msg.payload.sensorType==\"CT.X2\"){\n    msg.payload = {\n        cond : parseFloat(msg.payload.sensorLine.slice(0,7)),\n        temp : parseFloat(msg.payload.sensorLine.slice(9,15)),\n        timestamp : msg.payload.timestamp\n    }\n    return msg;\n}\nelse\n    return null;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 670,
+        "y": 1340,
+        "wires": [
+            [
+                "ad57e5ab56fe68bd",
+                "f39bca0c8b257ac8"
+            ]
+        ]
+    },
+    {
+        "id": "4ce2af42e18e04a6",
+        "type": "ui_chart",
+        "z": "cd4493f7e6e92af9",
+        "name": "Conductivity",
+        "group": "689765536cb02ed7",
+        "order": 0,
+        "width": "10",
+        "height": "10",
+        "label": "Conductivity (mS/m)",
+        "chartType": "line",
+        "legend": "false",
+        "xformat": "HH:mm:ss",
+        "interpolate": "linear",
+        "nodata": "",
+        "dot": false,
+        "ymin": "",
+        "ymax": "",
+        "removeOlder": "15",
+        "removeOlderPoints": "",
+        "removeOlderUnit": "60",
+        "cutout": 0,
+        "useOneColor": false,
+        "useUTC": false,
+        "colors": [
+            "#1f77b4",
+            "#aec7e8",
+            "#ff7f0e",
+            "#2ca02c",
+            "#98df8a",
+            "#d62728",
+            "#ff9896",
+            "#9467bd",
+            "#c5b0d5"
+        ],
+        "outputs": 1,
+        "useDifferentColor": false,
+        "className": "",
+        "x": 1230,
+        "y": 1200,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ad57e5ab56fe68bd",
+        "type": "change",
+        "z": "cd4493f7e6e92af9",
+        "name": "",
+        "rules": [
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "payload.cond",
+                "tot": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 1000,
+        "y": 1280,
+        "wires": [
+            [
+                "fff6521c5be2ded3",
+                "4ce2af42e18e04a6"
+            ]
+        ]
+    },
+    {
+        "id": "482308b530ab738e",
+        "type": "debug",
+        "z": "cd4493f7e6e92af9",
+        "name": "Temperature",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "payload",
+        "statusType": "auto",
+        "x": 1250,
+        "y": 1400,
+        "wires": []
+    },
+    {
+        "id": "1edff8a0c7ca2e3d",
+        "type": "ui_chart",
+        "z": "cd4493f7e6e92af9",
+        "name": "Temperature",
+        "group": "143de3c.3c1901c",
+        "order": 2,
+        "width": "12",
+        "height": "6",
+        "label": "Temperature (°C)",
+        "chartType": "line",
+        "legend": "false",
+        "xformat": "HH:mm:ss",
+        "interpolate": "linear",
+        "nodata": "",
+        "dot": false,
+        "ymin": "",
+        "ymax": "",
+        "removeOlder": 1,
+        "removeOlderPoints": "",
+        "removeOlderUnit": "3600",
+        "cutout": 0,
+        "useOneColor": false,
+        "useUTC": false,
+        "colors": [
+            "#1f77b4",
+            "#aec7e8",
+            "#ff7f0e",
+            "#2ca02c",
+            "#98df8a",
+            "#d62728",
+            "#ff9896",
+            "#9467bd",
+            "#c5b0d5"
+        ],
+        "outputs": 1,
+        "useDifferentColor": false,
+        "className": "",
+        "x": 1270,
+        "y": 1460,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "f39bca0c8b257ac8",
+        "type": "change",
+        "z": "cd4493f7e6e92af9",
+        "name": "",
+        "rules": [
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "payload.temp",
+                "tot": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 1000,
+        "y": 1380,
+        "wires": [
+            [
+                "482308b530ab738e",
+                "1edff8a0c7ca2e3d",
+                "ea47cb22f23f207d"
+            ]
+        ]
+    },
+    {
+        "id": "9f02fdaf3e05fb08",
+        "type": "debug",
+        "z": "cd4493f7e6e92af9",
+        "name": "debug 10",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 420,
+        "y": 1200,
+        "wires": []
+    },
+    {
+        "id": "f46629cb972ce0bc",
+        "type": "delay",
+        "z": "cd4493f7e6e92af9",
+        "name": "",
+        "pauseType": "rate",
+        "timeout": "5",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": true,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 250,
+        "y": 1420,
+        "wires": [
+            [
+                "a3b41ecef739aacd"
+            ]
+        ]
+    },
+    {
+        "id": "a989d41b4c589b23",
+        "type": "inject",
+        "z": "cd4493f7e6e92af9",
+        "name": "Clear Temp Chart",
+        "props": [],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "x": 740,
+        "y": 1500,
+        "wires": [
+            [
+                "5bc0d2b5cf3abd28",
+                "1edff8a0c7ca2e3d"
+            ]
+        ]
+    },
+    {
+        "id": "5bc0d2b5cf3abd28",
+        "type": "ui_button",
+        "z": "cd4493f7e6e92af9",
+        "name": "Clear Temp Chart",
+        "group": "143de3c.3c1901c",
+        "order": 3,
+        "width": "10",
+        "height": "1",
+        "passthru": false,
+        "label": "Clear Temp Chart Values",
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "className": "",
+        "icon": "",
+        "payload": "[]",
+        "payloadType": "json",
+        "topic": "topic",
+        "topicType": "msg",
+        "x": 910,
+        "y": 1540,
+        "wires": [
+            [
+                "1edff8a0c7ca2e3d"
+            ]
+        ]
+    },
+    {
+        "id": "ea47cb22f23f207d",
+        "type": "function",
+        "z": "cd4493f7e6e92af9",
+        "name": "move sensorval to SValue + Clear message",
+        "func": "/*let sValue = msg.payload\nlet newMsg ={\n    sensorValue:sValue\n\nreturn newMsg;*/\nlet sValue = msg.payload\nlet newMsg = {}\nnewMsg.payload = {};\nnewMsg.payload.sensorValue = sValue;\n\nreturn newMsg",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1170,
+        "y": 1120,
+        "wires": [
+            [
+                "992cd47315640b36"
+            ]
+        ]
+    },
+    {
+        "id": "322a10f2ac67a216",
+        "type": "debug",
+        "z": "cd4493f7e6e92af9",
+        "name": "debug 20",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 420,
+        "y": 180,
+        "wires": []
+    },
+    {
+        "id": "4fb2c86d0a8e9fe9",
+        "type": "switch",
+        "z": "cd4493f7e6e92af9",
+        "name": "GPSRAWINT",
+        "property": "payload.message.type",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "eq",
+                "v": "GPS_RAW_INT",
+                "vt": "str"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 1,
+        "x": 420,
+        "y": 260,
+        "wires": [
+            [
+                "64024326aa3cac7e",
+                "322a10f2ac67a216"
+            ]
+        ]
+    },
+    {
+        "id": "e07509d831acd487",
+        "type": "inject",
+        "z": "cd4493f7e6e92af9",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "mapLimits",
+        "payloadType": "flow",
+        "x": 1340,
+        "y": 600,
+        "wires": [
+            [
+                "1de9909278fb1f10"
+            ]
+        ]
+    },
+    {
+        "id": "1de9909278fb1f10",
+        "type": "debug",
+        "z": "cd4493f7e6e92af9",
+        "name": "Limit Checking",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1520,
+        "y": 620,
+        "wires": []
+    },
+    {
+        "id": "e56df4196d60a192",
+        "type": "inject",
+        "z": "cd4493f7e6e92af9",
+        "name": "limits bot left",
+        "props": [
+            {
+                "p": "payload.latV",
+                "v": "45.721222",
+                "vt": "num"
+            },
+            {
+                "p": "payload.lonV",
+                "v": "-61.0467225",
+                "vt": "num"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "x": 450,
+        "y": 800,
+        "wires": [
+            [
+                "b62014966f6af952"
+            ]
+        ]
+    },
+    {
+        "id": "30c25780b54c2efb",
+        "type": "inject",
+        "z": "cd4493f7e6e92af9",
+        "name": "limits top left",
+        "props": [
+            {
+                "p": "payload.latV",
+                "v": "45.725834",
+                "vt": "num"
+            },
+            {
+                "p": "payload.lonV",
+                "v": "-61.0467225",
+                "vt": "num"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "x": 450,
+        "y": 720,
+        "wires": [
+            [
+                "b62014966f6af952"
+            ]
+        ]
+    },
+    {
+        "id": "33b1f1bfef91d2fa",
+        "type": "inject",
+        "z": "cd4493f7e6e92af9",
+        "name": "limits top right",
+        "props": [
+            {
+                "p": "payload.latV",
+                "v": "45.725834",
+                "vt": "num"
+            },
+            {
+                "p": "payload.lonV",
+                "v": "-61.0374985",
+                "vt": "num"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "x": 630,
+        "y": 720,
+        "wires": [
+            [
+                "b62014966f6af952"
+            ]
+        ]
+    },
+    {
+        "id": "b333087ef9c30195",
+        "type": "inject",
+        "z": "cd4493f7e6e92af9",
+        "name": "top pond tip bot",
+        "props": [
+            {
+                "p": "payload.latV",
+                "v": "45.723954",
+                "vt": "num"
+            },
+            {
+                "p": "payload.lonV",
+                "v": "-61.038357",
+                "vt": "num"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "x": 560,
+        "y": 900,
+        "wires": [
+            [
+                "b62014966f6af952"
+            ]
+        ]
+    },
+    {
+        "id": "1613108a93a45aaf",
+        "type": "inject",
+        "z": "cd4493f7e6e92af9",
+        "name": "bot right",
+        "props": [
+            {
+                "p": "payload.latV",
+                "v": "45.721222",
+                "vt": "num"
+            },
+            {
+                "p": "payload.lonV",
+                "v": "-61.0374985",
+                "vt": "num"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "x": 640,
+        "y": 800,
+        "wires": [
+            [
+                "b62014966f6af952"
+            ]
+        ]
+    },
+    {
+        "id": "73444086e0a34171",
+        "type": "inject",
+        "z": "cd4493f7e6e92af9",
+        "name": "left shoal",
+        "props": [
+            {
+                "p": "payload.latV",
+                "v": "45.722320",
+                "vt": "num"
+            },
+            {
+                "p": "payload.lonV",
+                "v": "-61.045139",
+                "vt": "num"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "x": 360,
+        "y": 900,
+        "wires": [
+            [
+                "b62014966f6af952"
+            ]
+        ]
+    },
+    {
+        "id": "143de3c.3c1901c",
+        "type": "ui_group",
+        "name": "HeatmapPlot",
+        "tab": "4e49ccae.5e3364",
+        "order": 1,
+        "disp": true,
+        "width": "27",
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "8bf427ecc39606b9",
+        "type": "websocket-listener",
+        "path": "ws://192.168.2.2/mavlink2rest/ws/mavlink",
+        "wholemsg": "false"
+    },
+    {
+        "id": "689765536cb02ed7",
+        "type": "ui_group",
+        "name": "Default",
+        "tab": "4a15d970a32f02a4",
+        "order": 1,
+        "disp": true,
+        "width": "18",
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "4e49ccae.5e3364",
+        "type": "ui_tab",
+        "name": "Heatmap",
+        "icon": "dashboard",
+        "order": 1,
+        "disabled": false,
+        "hidden": false
+    },
+    {
+        "id": "258ddba9099dd4b6",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "node-red-contrib-ui-heatmap": "2.2.1",
+            "node-red-node-base64": "1.0.0",
+            "node-red-dashboard": "3.6.6"
+        }
+    }
+]
