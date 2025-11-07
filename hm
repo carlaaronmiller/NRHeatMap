@@ -2,7 +2,7 @@
     {
         "id": "cd4493f7e6e92af9",
         "type": "tab",
-        "label": "Flow 4",
+        "label": "Heat Map",
         "disabled": false,
         "info": "",
         "env": []
@@ -72,12 +72,12 @@
         "z": "cd4493f7e6e92af9",
         "group": "143de3c.3c1901c",
         "order": 1,
-        "width": "27",
-        "height": "14",
+        "width": "20",
+        "height": "10",
         "name": "Temperature  (\\(\\degree \\))C",
-        "rows": "20",
-        "columns": "40",
-        "minMax": true,
+        "rows": "50",
+        "columns": "100",
+        "minMax": false,
         "minimumValue": "15",
         "maximumValue": "25",
         "backgroundType": "image",
@@ -124,7 +124,7 @@
         "type": "function",
         "z": "cd4493f7e6e92af9",
         "name": "get Cell ID from lat/long",
-        "func": "// expects: msg.payload = { latV: number, lonV: number }\nconst HMCellCount = Number(flow.get(\"HMCellCount\") ?? 400);\nconst axisLength = Math.sqrt(HMCellCount);\nlet N = axisLength\nconst latV = msg.payload.latV, lonV = msg.payload.lonV;\nlet limits = flow.get(\"mapLimits\") ?? [-61.08, 45.70, -61.00, 45.75];\nlet [lonMin, latMin, lonMax, latMax] = limits.map(Number);\n\n//Check input is valid.\nif (!Number.isFinite(latV) || !Number.isFinite(lonV)) {\n  node.warn(\"latV/lonV missing or not numbers\");\n  return null;\n}\nif (!Number.isFinite(axisLength) || axisLength <= 0) {\n  node.warn(\"HMCellCount invalid\");\n  return null;\n}\nif (lonMax === lonMin || latMax === latMin) {\n  node.warn(\"mapLimits invalid (zero span)\");\n  return null;\n}//Check point is within boundary.\nif (latV < latMin || latV > latMax || lonV < lonMin || lonV > lonMax){\n  //node.warn(\"Vehicle lat lon is outside bounds.\")\n}\n\n\n// Normalize to range of 0,1\nconst fx = (lonV - lonMin) / (lonMax - lonMin);\nconst fy = (latV - latMin) / (latMax - latMin);\n\n// Dimensions of the grid in the HeatMap node, not the picture!\nconst gridRows = 20; // vertical\nconst gridCols = 80; // horizontal\n\n// Find the column first, then the row.\nconst col = Math.min(Math.floor(fx * gridCols), gridCols - 1);  // x index 0→39\nconst rowFromBottom = Math.min(Math.floor(fy * gridRows), gridRows - 1); // 0→19 bottom→top\n\n// 0 is top, so subtract to get the proper addition,.\nconst row = (gridRows - 1) - rowFromBottom;\n\n// Row-major index: increase down columns first (top→bottom) then left→right\nconst cellID = row + col * gridRows;\n\nlet newMsg = {}\nlet payload ={}\n\nnewMsg.payload = {};\n\nif (cellID >= HMCellCount||cellID<0)\n  return null;\n else {\n  newMsg.payload.cellID = cellID;\n  delete msg.header;\n  return newMsg;\n}",
+        "func": "// expects: msg.payload = { latV: number, lonV: number }\nconst HMCellCount = Number(flow.get(\"HMCellCount\") ?? 400);\nconst axisLength = Math.sqrt(HMCellCount);\nlet N = axisLength\nconst latV = msg.payload.latV, lonV = msg.payload.lonV;\nlet limits = flow.get(\"mapLimits\") ?? [-61.08, 45.70, -61.00, 45.75];\nlet [lonMin, latMin, lonMax, latMax] = limits.map(Number);\n\n//Check input is valid.\nif (!Number.isFinite(latV) || !Number.isFinite(lonV)) {\n  node.warn(\"latV/lonV missing or not numbers\");\n  return null;\n}\nif (!Number.isFinite(axisLength) || axisLength <= 0) {\n  node.warn(\"HMCellCount invalid\");\n  return null;\n}\nif (lonMax === lonMin || latMax === latMin) {\n  node.warn(\"mapLimits invalid (zero span)\");\n  return null;\n}//Check point is within boundary.\nif (latV < latMin || latV > latMax || lonV < lonMin || lonV > lonMax){\n  //node.warn(\"Vehicle lat lon is outside bounds.\")\n}\n\n\n// Normalize to range of 0,1\nconst fx = (lonV - lonMin) / (lonMax - lonMin);\nconst fy = (latV - latMin) / (latMax - latMin);\n\n// Dimensions of the grid in the HeatMap node, not the picture!\nconst gridRows = 50; // vertical\nconst gridCols = 100; // horizontal\n\n// Find the column first, then the row.\nconst col = Math.min(Math.floor(fx * gridCols), gridCols - 1);  // x index 0→39\nconst rowFromBottom = Math.min(Math.floor(fy * gridRows), gridRows - 1); // 0→19 bottom→top\n\n// 0 is top, so subtract to get the proper addition,.\nconst row = (gridRows - 1) - rowFromBottom;\n\n// Row-major index: increase down columns first (top→bottom) then left→right\nconst cellID = row + col * gridRows;\n\nlet newMsg = {}\nlet payload ={}\n\nnewMsg.payload = {};\n\nif (cellID >= HMCellCount||cellID<0)\n  return null;\n else {\n  newMsg.payload.cellID = cellID;\n  delete msg.header;\n  return newMsg;\n}",
         "outputs": 1,
         "timeout": "",
         "noerr": 0,
@@ -244,7 +244,7 @@
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
-        "initialize": "// Code added here will be run once\n// whenever the node is started.\n//St Peters Rectangle\n//flow.set(\"mapURL\",  \"https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-61.0467225,45.721222,-61.0374985,45.725834&bboxSR=4326&imageSR=4326&size=2048,1024&format=jpg&f=image\")\n\n//Iona Testing Regions Square\n//flow.set(\"mapURL\",  \"https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-60.807560,45.961888,-60.793568,45.969285&bboxSR=4326&size=1024,1024&format=jpg&f=image\")\n//Iona Testing Regions Rectangle\n//flow.set(\"mapURL\", \"https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-60.782895,45.958715,-60.816613,45.972229&bboxSR=4326&size=2048,1024&format=jpg&f=image\")\n\n//Burnside\n//flow.set(\"mapURL\", \"https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-63.615847,44.707940,-63.606351,44.712552&bboxSR=4326&size=2048,1024&format=jpg&f=image\")\n\n//Dal Parking Lot\nflow.set(\"mapURL\", \"https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-63.595991,44.6346515,-63.594210,44.6364325&bboxSR=4326&size=1000,500&format=jpg&f=image \")\n\nflow.set(\"mapLimits\", [])\nlet cellCount = 1600\nflow.set(\"HMCellCount\", cellCount)\nlet cellArray = new Array(cellCount).fill(null)\nflow.set(\"HMCellArray\", cellArray)",
+        "initialize": "// Code added here will be run once\n// whenever the node is started.\n//St Peters Rectangle\n//flow.set(\"mapURL\",  \"https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-61.0467225,45.721222,-61.0374985,45.725834&bboxSR=4326&imageSR=4326&size=2048,1024&format=jpg&f=image\")\n\n//Iona Testing Regions Square\n//flow.set(\"mapURL\",  \"https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-60.807560,45.961888,-60.793568,45.969285&bboxSR=4326&size=1024,1024&format=jpg&f=image\")\n//Iona Testing Regions Rectangle\n//flow.set(\"mapURL\", \"https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-60.782895,45.958715,-60.816613,45.972229&bboxSR=4326&size=2048,1024&format=jpg&f=image\")\n\n//Burnside\n//flow.set(\"mapURL\", \"https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-63.615847,44.707940,-63.606351,44.712552&bboxSR=4326&size=2048,1024&format=jpg&f=image\")\n\n//Dal Parking Lot\nflow.set(\"mapURL\", \"https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=-63.5968815,44.6346515,-63.5933195,44.6364325&bboxSR=4326&size=1000,500&imageSR=4326&format=jpg&f=image\")\n\nflow.set(\"mapLimits\", [])\nlet cellCount = 5000\nflow.set(\"HMCellCount\", cellCount)\nlet cellArray = new Array(cellCount).fill(null)\nflow.set(\"HMCellArray\", cellArray)",
         "finalize": "",
         "libs": [],
         "x": 1040,
@@ -390,7 +390,7 @@
         "type": "debug",
         "z": "cd4493f7e6e92af9",
         "name": "Latlong + Sensor Value",
-        "active": false,
+        "active": true,
         "tosidebar": true,
         "console": false,
         "tostatus": false,
@@ -598,50 +598,6 @@
         ]
     },
     {
-        "id": "4ce2af42e18e04a6",
-        "type": "ui_chart",
-        "z": "cd4493f7e6e92af9",
-        "name": "Conductivity",
-        "group": "689765536cb02ed7",
-        "order": 0,
-        "width": "10",
-        "height": "10",
-        "label": "Conductivity (mS/m)",
-        "chartType": "line",
-        "legend": "false",
-        "xformat": "HH:mm:ss",
-        "interpolate": "linear",
-        "nodata": "",
-        "dot": false,
-        "ymin": "",
-        "ymax": "",
-        "removeOlder": "15",
-        "removeOlderPoints": "",
-        "removeOlderUnit": "60",
-        "cutout": 0,
-        "useOneColor": false,
-        "useUTC": false,
-        "colors": [
-            "#1f77b4",
-            "#aec7e8",
-            "#ff7f0e",
-            "#2ca02c",
-            "#98df8a",
-            "#d62728",
-            "#ff9896",
-            "#9467bd",
-            "#c5b0d5"
-        ],
-        "outputs": 1,
-        "useDifferentColor": false,
-        "className": "",
-        "x": 1230,
-        "y": 1200,
-        "wires": [
-            []
-        ]
-    },
-    {
         "id": "ad57e5ab56fe68bd",
         "type": "change",
         "z": "cd4493f7e6e92af9",
@@ -664,8 +620,7 @@
         "y": 1280,
         "wires": [
             [
-                "fff6521c5be2ded3",
-                "4ce2af42e18e04a6"
+                "fff6521c5be2ded3"
             ]
         ]
     },
@@ -754,8 +709,7 @@
         "wires": [
             [
                 "482308b530ab738e",
-                "1edff8a0c7ca2e3d",
-                "ea47cb22f23f207d"
+                "1edff8a0c7ca2e3d"
             ]
         ]
     },
@@ -853,7 +807,7 @@
         "type": "function",
         "z": "cd4493f7e6e92af9",
         "name": "move sensorval to SValue + Clear message",
-        "func": "/*let sValue = msg.payload\nlet newMsg ={\n    sensorValue:sValue\n\nreturn newMsg;*/\nlet sValue = msg.payload\nlet newMsg = {}\nnewMsg.payload = {};\nnewMsg.payload.sensorValue = sValue;\n\nreturn newMsg",
+        "func": "/*let sValue = msg.payload\nlet newMsg ={\n    sensorValue:sValue\n\nreturn newMsg;*/\n\nlet sValue = msg.payload\nlet newMsg = {}\nnewMsg.payload = {};\nnewMsg.payload.sensorValue = sValue;\n\nreturn newMsg",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -864,7 +818,8 @@
         "y": 1120,
         "wires": [
             [
-                "992cd47315640b36"
+                "992cd47315640b36",
+                "2483798d8f79c5cb"
             ]
         ]
     },
@@ -1133,6 +1088,103 @@
         ]
     },
     {
+        "id": "beff168ebb7a50e3",
+        "type": "inject",
+        "z": "cd4493f7e6e92af9",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "1",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "1",
+        "payloadType": "num",
+        "x": 610,
+        "y": 1120,
+        "wires": [
+            [
+                "4a95c21ba36f37fe",
+                "b70faf8955e5a464"
+            ]
+        ]
+    },
+    {
+        "id": "2483798d8f79c5cb",
+        "type": "debug",
+        "z": "cd4493f7e6e92af9",
+        "name": "debug 34",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1480,
+        "y": 1160,
+        "wires": []
+    },
+    {
+        "id": "8d3b9d47ff6a104c",
+        "type": "debug",
+        "z": "cd4493f7e6e92af9",
+        "name": "debug 35",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1060,
+        "y": 1060,
+        "wires": []
+    },
+    {
+        "id": "4a95c21ba36f37fe",
+        "type": "debug",
+        "z": "cd4493f7e6e92af9",
+        "name": "debug 36",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 900,
+        "y": 1020,
+        "wires": []
+    },
+    {
+        "id": "b70faf8955e5a464",
+        "type": "function",
+        "z": "cd4493f7e6e92af9",
+        "name": "function 6",
+        "func": "let val = flow.get(\"counter\")\n\nmsg.payload = val;\n\nflow.set(\"counter\",val+1)\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "// Code added here will be run once\n// whenever the node is started.\nflow.set(\"counter\", 0)",
+        "finalize": "",
+        "libs": [],
+        "x": 820,
+        "y": 1120,
+        "wires": [
+            [
+                "8d3b9d47ff6a104c",
+                "ea47cb22f23f207d"
+            ]
+        ]
+    },
+    {
         "id": "143de3c.3c1901c",
         "type": "ui_group",
         "name": "HeatmapPlot",
@@ -1150,33 +1202,12 @@
         "wholemsg": "false"
     },
     {
-        "id": "689765536cb02ed7",
-        "type": "ui_group",
-        "name": "Default",
-        "tab": "4a15d970a32f02a4",
-        "order": 1,
-        "disp": true,
-        "width": "18",
-        "collapse": false,
-        "className": ""
-    },
-    {
         "id": "4e49ccae.5e3364",
         "type": "ui_tab",
         "name": "Heatmap",
         "icon": "dashboard",
-        "order": 1,
+        "order": 4,
         "disabled": false,
         "hidden": false
-    },
-    {
-        "id": "258ddba9099dd4b6",
-        "type": "global-config",
-        "env": [],
-        "modules": {
-            "node-red-contrib-ui-heatmap": "2.2.1",
-            "node-red-node-base64": "1.0.0",
-            "node-red-dashboard": "3.6.6"
-        }
     }
 ]
